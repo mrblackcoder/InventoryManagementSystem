@@ -9,4 +9,5 @@ public class InventoryManagementSystemApplication {
     public static void main(String[] args) {
         SpringApplication.run(InventoryManagementSystemApplication.class, args);
     }
+    //Sample
 }
