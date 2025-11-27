@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Inventory Management System</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="sidebar">
+            <h2>📦 IMS Admin</h2>
+            <ul>
+                <li><a th:href="@{/dashboard}">Dashboard</a></li>
+                <li><a th:href="@{/products}">Products</a></li>
+                <li><a th:href="@{/categories}">Categories</a></li>
+                <li><a th:href="@{/suppliers}">Suppliers</a></li>
+                <li><a th:href="@{/admin/users}" class="active">User Management</a></li>
+                <li><a th:href="@{/admin/reports}">Reports</a></li>
+            </ul>
+            <form th:action="@{/logout}" method="post" class="logout-form">
+                <button type="submit" class="btn btn-logout">Logout</button>
+            </form>
+        </nav>
+
+        <main class="content">
+            <header class="dashboard-header">
+                <h1>👥 User Management</h1>
+                <p>Admin Panel - Manage System Users</p>
+            </header>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Users</h3>
+                    <p class="stat-number" id="totalUsers">Loading...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Admin Users</h3>
+                    <p class="stat-number" id="adminUsers">Loading...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Regular Users</h3>
+                    <p class="stat-number" id="regularUsers">Loading...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Today</h3>
+                    <p class="stat-number" id="activeToday">-</p>
+                </div>
+            </div>
+
+            <section class="data-section">
+                <div class="section-header">
+                    <h2>All Users</h2>
+                    <button class="btn btn-primary" onclick="loadUsers()">🔄 Refresh</button>
+                </div>
+
+                <table id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <tr>
+                            <td colspan="8" style="text-align: center;">Loading users...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Load users on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUsers();
+        });
+
+        function loadUsers() {
+            fetch('/api/users')
+                .then(response => response.json())
+                .then(users => {
+                    displayUsers(users);
+                    updateStats(users);
+                })
+                .catch(error => {
+                    console.error('Error loading users:', error);
+                    document.getElementById('usersTableBody').innerHTML =
+                        '<tr><td colspan="8" style="text-align: center; color: red;">Error loading users</td></tr>';
+                });
+        }
+
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No users found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${user.username}</td>
+                    <td>${user.fullName || '-'}</td>
+                    <td>${user.email}</td>
+                    <td><span class="badge badge-${user.role.toLowerCase()}">${user.role}</span></td>
+                    <td><span class="badge badge-${user.enabled ? 'success' : 'danger'}">${user.enabled ? 'Active' : 'Inactive'}</span></td>
+                    <td>${new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn-sm btn-danger" onclick="deleteUser(${user.id}, '${user.username}')"
+                                ${user.role === 'ADMIN' ? 'disabled' : ''}>
+                            🗑️ Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStats(users) {
+            document.getElementById('totalUsers').textContent = users.length;
+            document.getElementById('adminUsers').textContent = users.filter(u => u.role === 'ADMIN').length;
+            document.getElementById('regularUsers').textContent = users.filter(u => u.role === 'USER').length;
+        }
+
+        function deleteUser(userId, username) {
+            if (!confirm(`Are you sure you want to delete user: ${username}?`)) {
+                return;
+            }
+
+            fetch(`/api/users/${userId}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('User deleted successfully');
+                    loadUsers();
+                } else {
+                    alert('Error deleting user');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting user');
+            });
+        }
+    </script>
+</body>
+</html>

@@ -78,6 +78,16 @@ public class ViewController {
         return "suppliers";
     }
 
+    @GetMapping("/admin/users")
+    public String adminUsersPage() {
+        return "admin/users";
+    }
+
+    @GetMapping("/admin/reports")
+    public String adminReportsPage() {
+        return "admin/reports";
+    }
+
     @GetMapping("/access-denied")
     public String accessDenied() {
         return "error/403";
