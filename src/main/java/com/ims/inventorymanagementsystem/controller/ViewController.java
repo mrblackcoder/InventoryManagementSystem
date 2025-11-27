@@ -78,6 +78,11 @@ public class ViewController {
         return "suppliers";
     }
 
+    @GetMapping("/stock-movements")
+    public String stockMovementsPage() {
+        return "stock-movements";
+    }
+
     @GetMapping("/admin/users")
     public String adminUsersPage() {
         return "admin/users";
