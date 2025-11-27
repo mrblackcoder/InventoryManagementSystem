@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management System - Home</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Inventory Management System</h1>
+            <p>Modern and Efficient Stock Management Solution</p>
+        </header>
+
+        <main>
+            <section class="hero">
+                <h2>Welcome to Our System</h2>
+                <p>Manage your inventory, track stock movements, and optimize your supply chain with ease.</p>
+
+                <div class="cta-buttons">
+                    <a th:href="@{/login}" class="btn btn-primary">Login</a>
+                    <a th:href="@{/register}" class="btn btn-secondary">Register</a>
+                </div>
+            </section>
+
+            <section class="features">
+                <h3>Key Features</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>📊 Product Management</h4>
+                        <p>Track all your products with detailed information and real-time updates</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>🏷️ Category Organization</h4>
+                        <p>Organize products into categories for better management</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>🚚 Supplier Tracking</h4>
+                        <p>Manage supplier information and relationships efficiently</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>📈 Stock Movements</h4>
+                        <p>Monitor all stock movements with detailed history</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 Inventory Management System. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>

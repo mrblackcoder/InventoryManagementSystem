@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - Inventory Management System</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="sidebar">
+            <h2>📦 IMS</h2>
+            <ul>
+                <li><a th:href="@{/dashboard}">Dashboard</a></li>
+                <li><a th:href="@{/products}" class="active">Products</a></li>
+                <li><a th:href="@{/categories}">Categories</a></li>
+                <li><a th:href="@{/suppliers}">Suppliers</a></li>
+                <li><a th:href="@{/stock-movements}">Stock Movements</a></li>
+                <li sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin/users}">User Management</a></li>
+                <li sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin/reports}">Reports</a></li>
+            </ul>
+            <form th:action="@{/logout}" method="post" class="logout-form">
+                <button type="submit" class="btn btn-logout">Logout</button>
+            </form>
+        </nav>
+
+        <main class="content">
+            <header class="dashboard-header">
+                <h1>📦 Product Management</h1>
+                <p>View and manage all products in inventory</p>
+            </header>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Products</h3>
+                    <p class="stat-number" th:text="${products.size()}">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Products</h3>
+                    <p class="stat-number" id="activeProducts">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Low Stock</h3>
+                    <p class="stat-number" id="lowStockCount">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Value</h3>
+                    <p class="stat-number" id="totalValue">$0</p>
+                </div>
+            </div>
+
+            <section class="data-section">
+                <div class="section-header">
+                    <h2>All Products</h2>
+                    <div>
+                        <button class="btn btn-primary" onclick="showAddModal()">➕ Add New Product</button>
+                        <button class="btn btn-secondary" onclick="window.open('/api/currency/rates', '_blank')">💱 Exchange Rates</button>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Supplier</th>
+                            <th>Quantity</th>
+                            <th>Reorder Level</th>
+                            <th>Price (USD)</th>
+                            <th>Price (TRY)</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="product : ${products}">
+                            <td th:text="${product.sku}">SKU001</td>
+                            <td th:text="${product.name}">Product Name</td>
+                            <td th:text="${product.category != null ? product.category.name : 'N/A'}">Category</td>
+                            <td th:text="${product.supplier != null ? product.supplier.name : 'N/A'}">Supplier</td>
+                            <td th:text="${product.quantity}">100</td>
+                            <td th:text="${product.reorderLevel}">10</td>
+                            <td th:text="'$' + ${product.price}">$99.99</td>
+                            <td class="price-try" th:data-usd="${product.price}">Loading...</td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${product.status == 'ACTIVE' ? 'badge-success' : 'badge-danger'}"
+                                      th:text="${product.status}">ACTIVE</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" th:onclick="'editProduct(' + ${product.id} + ')'">✏️ Edit</button>
+                                <button class="btn btn-sm btn-danger" th:onclick="'deleteProduct(' + ${product.id} + ')'">🗑️ Delete</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="productModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Product</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="productForm" onsubmit="saveProduct(event)">
+                <input type="hidden" id="productId">
+
+                <div class="form-group">
+                    <label for="name">Product Name *</label>
+                    <input type="text" id="name" name="name" required
+                           minlength="2" maxlength="100" placeholder="Enter product name">
+                </div>
+
+                <div class="form-group">
+                    <label for="sku">SKU *</label>
+                    <input type="text" id="sku" name="sku" required
+                           maxlength="50" placeholder="Enter unique SKU">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="3"
+                              maxlength="500" placeholder="Enter product description"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="price">Price (USD) *</label>
+                        <input type="number" id="price" name="price" required
+                               min="0.01" step="0.01" placeholder="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="quantity">Quantity *</label>
+                        <input type="number" id="quantity" name="quantity" required
+                               min="0" placeholder="0">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="reorderLevel">Reorder Level</label>
+                        <input type="number" id="reorderLevel" name="reorderLevel"
+                               min="0" placeholder="10">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="status">Status</label>
+                        <select id="status" name="status">
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                            <option value="DISCONTINUED">Discontinued</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="categoryId">Category</label>
+                        <select id="categoryId" name="categoryId">
+                            <option value="">-- Select Category --</option>
+                            <option th:each="category : ${categories}"
+                                    th:value="${category.id}"
+                                    th:text="${category.name}">Category</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="supplierId">Supplier</label>
+                        <select id="supplierId" name="supplierId">
+                            <option value="">-- Select Supplier --</option>
+                            <option th:each="supplier : ${suppliers}"
+                                    th:value="${supplier.id}"
+                                    th:text="${supplier.name}">Supplier</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">💾 Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Calculate statistics
+        const products = /*[[${products}]]*/ [];
+
+        // Active products count
+        const activeCount = products.filter(p => p.status === 'ACTIVE').length;
+        document.getElementById('activeProducts').textContent = activeCount;
+
+        // Low stock count (products below reorder level)
+        const lowStock = products.filter(p => p.quantity <= (p.reorderLevel || 10)).length;
+        document.getElementById('lowStockCount').textContent = lowStock;
+
+        // Total inventory value
+        const totalValue = products.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+        document.getElementById('totalValue').textContent = '$' + totalValue.toFixed(2);
+
+        // Fetch and display TRY prices using Currency API
+        fetch('/api/currency/convert?amount=1&targetCurrency=TRY')
+            .then(response => response.json())
+            .then(data => {
+                const rate = data.convertedAmount;
+                document.querySelectorAll('.price-try').forEach(cell => {
+                    const usdPrice = parseFloat(cell.getAttribute('data-usd'));
+                    const tryPrice = (usdPrice * rate).toFixed(2);
+                    cell.textContent = '₺' + tryPrice;
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching exchange rate:', error);
+                document.querySelectorAll('.price-try').forEach(cell => {
+                    cell.textContent = 'N/A';
+                });
+            });
+
+        // Modal functions
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add New Product';
+            document.getElementById('productForm').reset();
+            document.getElementById('productId').value = '';
+            document.getElementById('productModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('productModal').style.display = 'none';
+        }
+
+        function editProduct(id) {
+            fetch(`/api/products/${id}`)
+                .then(response => response.json())
+                .then(product => {
+                    document.getElementById('modalTitle').textContent = 'Edit Product';
+                    document.getElementById('productId').value = product.id;
+                    document.getElementById('name').value = product.name;
+                    document.getElementById('sku').value = product.sku;
+                    document.getElementById('description').value = product.description || '';
+                    document.getElementById('price').value = product.price;
+                    document.getElementById('quantity').value = product.quantity;
+                    document.getElementById('reorderLevel').value = product.reorderLevel || '';
+                    document.getElementById('status').value = product.status;
+                    document.getElementById('categoryId').value = product.category ? product.category.id : '';
+                    document.getElementById('supplierId').value = product.supplier ? product.supplier.id : '';
+                    document.getElementById('productModal').style.display = 'flex';
+                })
+                .catch(error => {
+                    console.error('Error loading product:', error);
+                    alert('Error loading product details');
+                });
+        }
+
+        function saveProduct(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('productId').value;
+            const productData = {
+                name: document.getElementById('name').value,
+                sku: document.getElementById('sku').value,
+                description: document.getElementById('description').value,
+                price: parseFloat(document.getElementById('price').value),
+                quantity: parseInt(document.getElementById('quantity').value),
+                reorderLevel: document.getElementById('reorderLevel').value ? parseInt(document.getElementById('reorderLevel').value) : null,
+                status: document.getElementById('status').value,
+                category: document.getElementById('categoryId').value ? { id: parseInt(document.getElementById('categoryId').value) } : null,
+                supplier: document.getElementById('supplierId').value ? { id: parseInt(document.getElementById('supplierId').value) } : null
+            };
+
+            const url = id ? `/api/products/${id}` : '/api/products';
+            const method = id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(productData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Product saved successfully!');
+                    location.reload();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Error saving product');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error saving product:', error);
+                alert('Error saving product: ' + error.message);
+            });
+        }
+
+        function deleteProduct(id) {
+            if (!confirm('Are you sure you want to delete this product?')) {
+                return;
+            }
+
+            fetch(`/api/products/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Product deleted successfully!');
+                    location.reload();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Error deleting product');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting product:', error);
+                alert('Error deleting product: ' + error.message);
+            });
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('productModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+
+    <style>
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 700px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #667eea;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        #productForm {
+            padding: 20px;
+        }
+
+        #productForm textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        #productForm select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>
