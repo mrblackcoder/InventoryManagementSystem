@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categories - Inventory Management System</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="sidebar">
+            <h2>📦 IMS</h2>
+            <ul>
+                <li><a th:href="@{/dashboard}">Dashboard</a></li>
+                <li><a th:href="@{/products}">Products</a></li>
+                <li><a th:href="@{/categories}" class="active">Categories</a></li>
+                <li><a th:href="@{/suppliers}">Suppliers</a></li>
+                <li><a th:href="@{/stock-movements}">Stock Movements</a></li>
+                <li sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin/users}">User Management</a></li>
+                <li sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin/reports}">Reports</a></li>
+            </ul>
+            <form th:action="@{/logout}" method="post" class="logout-form">
+                <button type="submit" class="btn btn-logout">Logout</button>
+            </form>
+        </nav>
+
+        <main class="content">
+            <header class="dashboard-header">
+                <h1>📂 Category Management</h1>
+                <p>Organize and manage product categories</p>
+            </header>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Categories</h3>
+                    <p class="stat-number" th:text="${categories.size()}">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Categories</h3>
+                    <p class="stat-number" id="activeCategories">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Inactive Categories</h3>
+                    <p class="stat-number" id="inactiveCategories">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Products Categorized</h3>
+                    <p class="stat-number" id="totalProducts">0</p>
+                </div>
+            </div>
+
+            <section class="data-section">
+                <div class="section-header">
+                    <h2>All Categories</h2>
+                    <button class="btn btn-primary" onclick="showAddModal()">➕ Add New Category</button>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Products Count</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="category : ${categories}">
+                            <td th:text="${category.id}">1</td>
+                            <td th:text="${category.name}">Category Name</td>
+                            <td th:text="${category.description}">Description</td>
+                            <td th:text="${category.products != null ? category.products.size() : 0}">0</td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${category.isActive ? 'badge-success' : 'badge-danger'}"
+                                      th:text="${category.isActive ? 'ACTIVE' : 'INACTIVE'}">ACTIVE</span>
+                            </td>
+                            <td th:text="${#temporals.format(category.createdAt, 'yyyy-MM-dd HH:mm')}">2025-01-01 10:00</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" th:onclick="'editCategory(' + ${category.id} + ')'">✏️ Edit</button>
+                                <button class="btn btn-sm btn-danger" th:onclick="'deleteCategory(' + ${category.id} + ')'"
+                                        th:disabled="${category.products != null && category.products.size() > 0}">🗑️ Delete</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="categoryModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Category</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="categoryForm" onsubmit="saveCategory(event)">
+                <input type="hidden" id="categoryId">
+
+                <div class="form-group">
+                    <label for="name">Category Name *</label>
+                    <input type="text" id="name" name="name" required
+                           minlength="2" maxlength="100" placeholder="Enter category name">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="3"
+                              maxlength="500" placeholder="Enter category description"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="isActive">Status</label>
+                    <select id="isActive" name="isActive">
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">💾 Save Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Calculate statistics
+        const categories = /*[[${categories}]]*/ [];
+
+        // Active/Inactive counts
+        const activeCount = categories.filter(c => c.isActive).length;
+        document.getElementById('activeCategories').textContent = activeCount;
+        document.getElementById('inactiveCategories').textContent = categories.length - activeCount;
+
+        // Total products count
+        const totalProducts = categories.reduce((sum, c) => sum + (c.products ? c.products.length : 0), 0);
+        document.getElementById('totalProducts').textContent = totalProducts;
+
+        // Modal functions
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add New Category';
+            document.getElementById('categoryForm').reset();
+            document.getElementById('categoryId').value = '';
+            document.getElementById('categoryModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('categoryModal').style.display = 'none';
+        }
+
+        function editCategory(id) {
+            fetch(`/api/categories/${id}`)
+                .then(response => response.json())
+                .then(category => {
+                    document.getElementById('modalTitle').textContent = 'Edit Category';
+                    document.getElementById('categoryId').value = category.id;
+                    document.getElementById('name').value = category.name;
+                    document.getElementById('description').value = category.description || '';
+                    document.getElementById('isActive').value = category.isActive;
+                    document.getElementById('categoryModal').style.display = 'flex';
+                })
+                .catch(error => {
+                    console.error('Error loading category:', error);
+                    alert('Error loading category details');
+                });
+        }
+
+        function saveCategory(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('categoryId').value;
+            const categoryData = {
+                name: document.getElementById('name').value,
+                description: document.getElementById('description').value,
+                isActive: document.getElementById('isActive').value === 'true'
+            };
+
+            const url = id ? `/api/categories/${id}` : '/api/categories';
+            const method = id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(categoryData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Category saved successfully!');
+                    location.reload();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Error saving category');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error saving category:', error);
+                alert('Error saving category: ' + error.message);
+            });
+        }
+
+        function deleteCategory(id) {
+            if (!confirm('Are you sure you want to delete this category?')) {
+                return;
+            }
+
+            fetch(`/api/categories/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Category deleted successfully!');
+                    location.reload();
+                } else {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Error deleting category');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting category:', error);
+                alert('Error deleting category: ' + error.message);
+            });
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('categoryModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+
+    <style>
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #667eea;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        #categoryForm {
+            padding: 20px;
+        }
+
+        #categoryForm textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        #categoryForm select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</body>
+</html>

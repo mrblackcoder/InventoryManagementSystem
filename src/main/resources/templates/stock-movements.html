@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Movements - Inventory Management System</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="sidebar">
+            <h2>📦 IMS</h2>
+            <ul>
+                <li><a th:href="@{/dashboard}">Dashboard</a></li>
+                <li><a th:href="@{/products}">Products</a></li>
+                <li><a th:href="@{/categories}">Categories</a></li>
+                <li><a th:href="@{/suppliers}">Suppliers</a></li>
+                <li><a th:href="@{/stock-movements}" class="active">Stock Movements</a></li>
+                <li sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin/users}">User Management</a></li>
+                <li sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin/reports}">Reports</a></li>
+            </ul>
+            <form th:action="@{/logout}" method="post" class="logout-form">
+                <button type="submit" class="btn btn-logout">Logout</button>
+            </form>
+        </nav>
+
+        <main class="content">
+            <header class="dashboard-header">
+                <h1>📊 Stock Movement Management</h1>
+                <p>Track and manage inventory transactions</p>
+            </header>
+
+            <div class="stats-grid">
+                <div class="stat-card stat-in">
+                    <h3>Purchases (IN)</h3>
+                    <p class="stat-number" id="totalPurchases">0</p>
+                </div>
+                <div class="stat-card stat-out">
+                    <h3>Sales (OUT)</h3>
+                    <p class="stat-number" id="totalSales">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Returns</h3>
+                    <p class="stat-number" id="totalReturns">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Movements</h3>
+                    <p class="stat-number" id="totalMovements">0</p>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <h3>Filter Movements</h3>
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label>Movement Type</label>
+                        <select id="filterType" onchange="filterMovements()">
+                            <option value="">All Types</option>
+                            <option value="IN">Purchases (IN)</option>
+                            <option value="OUT">Sales (OUT)</option>
+                            <option value="RETURN">Returns</option>
+                            <option value="ADJUSTMENT">Adjustments</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="loadMovements()">🔍 Filter</button>
+                </div>
+            </div>
+
+            <section class="data-section">
+                <div class="section-header">
+                    <h2>Stock Movements</h2>
+                    <button class="btn btn-primary" onclick="showAddModal()">➕ Add Stock Movement</button>
+                </div>
+
+                <table id="movementsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Product</th>
+                            <th>Type</th>
+                            <th>Quantity</th>
+                            <th>Performed By</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody id="movementsTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center;">Loading movements...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add Movement Modal -->
+    <div id="movementModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Stock Movement</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="movementForm" onsubmit="saveMovement(event)">
+                <div class="form-group">
+                    <label for="productId">Product *</label>
+                    <select id="productId" name="productId" required onchange="updateProductInfo()">
+                        <option value="">-- Select Product --</option>
+                    </select>
+                    <small id="productInfo" style="color: #666; margin-top: 5px; display: block;"></small>
+                </div>
+
+                <div class="form-group">
+                    <label for="type">Movement Type *</label>
+                    <select id="type" name="type" required>
+                        <option value="">-- Select Type --</option>
+                        <option value="IN">Purchase (IN) - Add to stock</option>
+                        <option value="OUT">Sale (OUT) - Remove from stock</option>
+                        <option value="RETURN">Return - Add to stock</option>
+                        <option value="ADJUSTMENT">Adjustment - Manual correction</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="quantity">Quantity *</label>
+                    <input type="number" id="quantity" name="quantity" required
+                           min="1" placeholder="Enter quantity">
+                </div>
+
+                <div class="form-group">
+                    <label for="reason">Reason/Notes</label>
+                    <textarea id="reason" name="reason" rows="3"
+                              maxlength="500" placeholder="Enter reason for this movement"></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">💾 Record Movement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allMovements = [];
+        let allProducts = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProducts();
+            loadMovements();
+        });
+
+        function loadProducts() {
+            fetch('/api/products')
+                .then(response => response.json())
+                .then(products => {
+                    allProducts = products;
+                    const select = document.getElementById('productId');
+                    select.innerHTML = '<option value="">-- Select Product --</option>';
+                    products.forEach(product => {
+                        const option = document.createElement('option');
+                        option.value = product.id;
+                        option.textContent = `${product.name} (${product.sku}) - Stock: ${product.quantity}`;
+                        option.setAttribute('data-quantity', product.quantity);
+                        option.setAttribute('data-name', product.name);
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading products:', error);
+                });
+        }
+
+        function updateProductInfo() {
+            const select = document.getElementById('productId');
+            const selectedOption = select.options[select.selectedIndex];
+            const infoDiv = document.getElementById('productInfo');
+
+            if (selectedOption.value) {
+                const quantity = selectedOption.getAttribute('data-quantity');
+                infoDiv.textContent = `Current stock: ${quantity} units`;
+            } else {
+                infoDiv.textContent = '';
+            }
+        }
+
+        function loadMovements() {
+            fetch('/api/stock-movements')
+                .then(response => response.json())
+                .then(movements => {
+                    allMovements = movements;
+                    displayMovements(movements);
+                    updateStats(movements);
+                })
+                .catch(error => {
+                    console.error('Error loading movements:', error);
+                    document.getElementById('movementsTableBody').innerHTML =
+                        '<tr><td colspan="6" style="text-align: center; color: red;">Error loading movements</td></tr>';
+                });
+        }
+
+        function displayMovements(movements) {
+            const tbody = document.getElementById('movementsTableBody');
+
+            if (movements.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No movements found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = movements.map(movement => `
+                <tr>
+                    <td>${new Date(movement.movementDate).toLocaleString()}</td>
+                    <td>${movement.product.name} (${movement.product.sku})</td>
+                    <td><span class="badge badge-${movement.type.toLowerCase()}">${movement.type}</span></td>
+                    <td>${movement.quantity}</td>
+                    <td>${movement.performedBy ? movement.performedBy.username : 'System'}</td>
+                    <td>${movement.reason || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStats(movements) {
+            const purchases = movements.filter(m => m.type === 'IN');
+            const sales = movements.filter(m => m.type === 'OUT');
+            const returns = movements.filter(m => m.type === 'RETURN');
+
+            document.getElementById('totalPurchases').textContent =
+                purchases.reduce((sum, m) => sum + m.quantity, 0);
+            document.getElementById('totalSales').textContent =
+                sales.reduce((sum, m) => sum + m.quantity, 0);
+            document.getElementById('totalReturns').textContent =
+                returns.reduce((sum, m) => sum + m.quantity, 0);
+            document.getElementById('totalMovements').textContent = movements.length;
+        }
+
+        function filterMovements() {
+            const filterType = document.getElementById('filterType').value;
+
+            if (filterType === '') {
+                displayMovements(allMovements);
+            } else {
+                const filtered = allMovements.filter(m => m.type === filterType);
+                displayMovements(filtered);
+            }
+        }
+
+        function showAddModal() {
+            document.getElementById('movementForm').reset();
+            document.getElementById('productInfo').textContent = '';
+            document.getElementById('movementModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('movementModal').style.display = 'none';
+        }
+
+        function saveMovement(event) {
+            event.preventDefault();
+
+            const movementData = {
+                product: { id: parseInt(document.getElementById('productId').value) },
+                type: document.getElementById('type').value,
+                quantity: parseInt(document.getElementById('quantity').value),
+                reason: document.getElementById('reason').value
+            };
+
+            fetch('/api/stock-movements', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(movementData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Stock movement recorded successfully!');
+                    closeModal();
+                    loadMovements();
+                    loadProducts(); // Refresh product stock levels
+                } else {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Error recording movement');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error saving movement:', error);
+                alert('Error recording movement: ' + error.message);
+            });
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('movementModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+
+    <style>
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #667eea;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        #movementForm {
+            padding: 20px;
+        }
+
+        #movementForm textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        #movementForm select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</body>
+</html>
