@@ -42,6 +42,9 @@ public class UserService implements UserDetailsService {
             throw new DuplicateResourceException("User", "email", user.getEmail());
         }
 
+        // Validate password strength
+        validatePassword(user.getPassword());
+
         // Encode password
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
@@ -50,9 +53,40 @@ public class UserService implements UserDetailsService {
             user.setRole(User.Role.USER);
         }
 
+        // Set enabled to true by default
+        if (user.getIsEnabled() == null) {
+            user.setIsEnabled(true);
+        }
+
         User savedUser = userRepository.save(user);
         log.info("User registered successfully: {}", savedUser.getUsername());
         return savedUser;
+    }
+
+    /**
+     * Validates password strength
+     * Requirements:
+     * - Minimum 8 characters
+     * - At least one uppercase letter
+     * - At least one lowercase letter
+     * - At least one digit
+     */
+    private void validatePassword(String password) {
+        if (password == null || password.length() < 8) {
+            throw new IllegalArgumentException("Password must be at least 8 characters long");
+        }
+
+        if (!password.matches(".*[A-Z].*")) {
+            throw new IllegalArgumentException("Password must contain at least one uppercase letter");
+        }
+
+        if (!password.matches(".*[a-z].*")) {
+            throw new IllegalArgumentException("Password must contain at least one lowercase letter");
+        }
+
+        if (!password.matches(".*\\d.*")) {
+            throw new IllegalArgumentException("Password must contain at least one digit");
+        }
     }
 
     public List<User> getAllUsers() {

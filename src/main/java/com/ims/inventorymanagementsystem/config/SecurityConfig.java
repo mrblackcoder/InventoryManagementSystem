@@ -44,12 +44,20 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authenticationProvider(authenticationProvider())
+                // Security Headers for protection against common attacks
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.deny())  // Prevent Clickjacking attacks
+                        .xssProtection(xss -> xss.headerValue("1; mode=block"))  // XSS Protection
+                        .contentTypeOptions(contentType -> contentType.disable())  // Prevent MIME sniffing
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"))
+                )
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
-                        .requestMatchers("/", "/home", "/login", "/register", "/css/**", "/js/**", "/images/**").permitAll()
+                        .requestMatchers("/", "/home", "/login", "/register", "/css/**", "/js/**", "/images/**", "/error/**").permitAll()
                         // API endpoints - require authentication
                         .requestMatchers("/api/**").authenticated()
-                        // Admin endpoints
+                        // Admin endpoints - require ADMIN role
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // All other requests require authentication
                         .anyRequest().authenticated()
@@ -62,10 +70,16 @@ public class SecurityConfig {
                 )
                 .logout(logout -> logout
                         .logoutSuccessUrl("/login?logout=true")
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
                         .permitAll()
                 )
                 .exceptionHandling(ex -> ex
                         .accessDeniedPage("/access-denied")
+                )
+                // CSRF protection is enabled by default for state-changing operations
+                .csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/api/currency/**")  // External API calls don't need CSRF
                 );
 
         return http.build();

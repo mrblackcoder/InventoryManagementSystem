@@ -82,6 +82,16 @@ public class ProductService {
         product.setReorderLevel(productDetails.getReorderLevel());
         product.setStatus(productDetails.getStatus());
 
+        // Update category if provided
+        if (productDetails.getCategory() != null) {
+            product.setCategory(productDetails.getCategory());
+        }
+
+        // Update supplier if provided
+        if (productDetails.getSupplier() != null) {
+            product.setSupplier(productDetails.getSupplier());
+        }
+
         Product updatedProduct = productRepository.save(product);
         log.info("Product updated successfully with id: {}", updatedProduct.getId());
         return updatedProduct;
