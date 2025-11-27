@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Inventory Management System</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="sidebar">
+            <h2>📦 IMS</h2>
+            <ul>
+                <li><a th:href="@{/dashboard}" class="active">Dashboard</a></li>
+                <li><a th:href="@{/products}">Products</a></li>
+                <li><a th:href="@{/categories}">Categories</a></li>
+                <li><a th:href="@{/suppliers}">Suppliers</a></li>
+                <li sec:authorize="hasRole('ADMIN')"><a href="#">Admin Panel</a></li>
+            </ul>
+            <form th:action="@{/logout}" method="post" class="logout-form">
+                <button type="submit" class="btn btn-logout">Logout</button>
+            </form>
+        </nav>
+
+        <main class="content">
+            <header class="dashboard-header">
+                <h1>Dashboard</h1>
+                <p>Welcome, <span th:text="${username}">User</span>!</p>
+            </header>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Products</h3>
+                    <p class="stat-number" th:text="${products.size()}">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Categories</h3>
+                    <p class="stat-number" th:text="${categories.size()}">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Suppliers</h3>
+                    <p class="stat-number" th:text="${suppliers.size()}">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Low Stock Items</h3>
+                    <p class="stat-number">0</p>
+                </div>
+            </div>
+
+            <section class="recent-products">
+                <h2>Recent Products</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Name</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="product : ${products}" th:if="${productStat.index < 5}">
+                            <td th:text="${product.sku}">SKU001</td>
+                            <td th:text="${product.name}">Product Name</td>
+                            <td th:text="${product.quantity}">100</td>
+                            <td th:text="${product.price}">$99.99</td>
+                            <td th:text="${product.status}">ACTIVE</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

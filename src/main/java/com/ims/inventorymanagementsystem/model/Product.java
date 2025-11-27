@@ -56,6 +56,19 @@ public class Product {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // Relationships
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
